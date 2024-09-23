@@ -1,0 +1,19 @@
+<component name="InspectionProjectProfileManager">
+  <profile version="1.0">
+    <option name="myName" value="Project Default" />
+    <inspection_tool class="PyUnresolvedReferencesInspection" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoredIdentifiers">
+        <list>
+          <option value="pythonProject.venv.APP.scipy" />
+          <option value="pythonProject.venv.APP.right_eye" />
+          <option value="range.get_frontal_face_detector" />
+          <option value="range.shape_predictor" />
+          <option value="range.VideoCapture" />
+          <option value="range.*" />
+          <option value="distane" />
+          <option value="pythonProject.venv.APP.scipt" />
+        </list>
+      </option>
+    </inspection_tool>
+  </profile>
+</component>
