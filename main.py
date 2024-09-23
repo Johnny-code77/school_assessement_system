@@ -1,74 +1,83 @@
-import numpy as np
+from flask import Flask, request, render_template, redirect, url_for
 import pandas as pd
-import seaborn as sns
 import matplotlib.pyplot as plt
-from tkinter import *
-from tkinter import filedialog
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import io
+import base64
+
+app = Flask(__name__)
 
 df = None  # Initialize the DataFrame variable
 
-def create_window():
-    win = Tk()
-    win.geometry("900x600")
-    win.title('School Performace Assessment System')
-    return win
+@app.route('/')
+def index():
+    return render_template('index.html')  # HTML file for the upload form
 
+@app.route('/upload', methods=['POST'])
 def upload_file():
     global df
-    win = create_window()
-    file_path = filedialog.askopenfilename(filetypes=[("CSV Files", "*.csv")])
-    if file_path:
-        df = pd.read_csv(file_path)
-        print("Selected File:", file_path)
-        create_and_display_charts(win)
+    if 'file' not in request.files:
+        return "No file part", 400
+    
+    file = request.files['file']
+    if file.filename == '':
+        return "No selected file", 400
+    
+    try:
+        df = pd.read_csv(file)
+    except Exception as e:
+        return f"Error reading the CSV file: {e}", 400
+    
+    return redirect(url_for('charts'))
 
-def create_and_display_charts(win):
-    if df is not None:
-        # First Matplotlib figure - Pie Chart
-        plt.figure(figsize=(5, 5))
-        labels = ['Female', 'Male']
-        plt.pie(df['gender'].value_counts(), labels=labels, explode=[0.1, 0.1],
-                autopct='%1.2f%%', colors=['#E37383', '#FFC0CB'], startangle=90)
-        plt.title('Gender')
+@app.route('/charts')
+def charts():
+    if df is None or df.empty:
+        return "No data available. Please upload a CSV file.", 400
 
-        # Embed the first figure in the Tkinter window
-        canvas1 = FigureCanvasTkAgg(plt.gcf(), master=win)
-        canvas1.get_tk_widget().pack(side=LEFT, fill=BOTH, expand=1)
+    charts_data = []
+    
+    # Check for required columns
+    if 'gender' not in df.columns or 'year' not in df.columns or 'performance' not in df.columns:
+        return "Missing required columns in the data.", 400
 
-        # Second Matplotlib figure - Grouped Bar Chart
-        plt.figure(figsize=(5, 5))
-        grouped_data = df.groupby(['year', 'gender'])['performance'].mean().unstack()
-        grouped_data.plot(kind='bar', color=['blue', 'pink'])
-        plt.title('Performance by Year and Gender')
-        plt.xlabel('Year')
-        plt.ylabel('Average Performance')
+    # Create Pie Chart
+    plt.figure(figsize=(5, 5))
+    labels = df['gender'].value_counts().index.tolist()
+    plt.pie(df['gender'].value_counts(), labels=labels, explode=[0.1]*len(labels),
+            autopct='%1.2f%%', startangle=90)
+    plt.title('Gender Distribution')
+    img = io.BytesIO()
+    plt.savefig(img, format='png')
+    img.seek(0)
+    charts_data.append(base64.b64encode(img.getvalue()).decode())
 
-        # Embed the second figure in the Tkinter window
-        canvas2 = FigureCanvasTkAgg(plt.gcf(), master=win)
-        canvas2.get_tk_widget().pack(side=LEFT, fill=BOTH, expand=1)
+    # Grouped Bar Chart
+    plt.clf()  # Clear the current figure
+    plt.figure(figsize=(5, 5))
+    grouped_data = df.groupby(['year', 'gender'])['performance'].mean().unstack()
+    grouped_data.plot(kind='bar', color=['blue', 'pink'])
+    plt.title('Performance by Year and Gender')
+    plt.xlabel('Year')
+    plt.ylabel('Average Performance')
+    img = io.BytesIO()
+    plt.savefig(img, format='png')
+    img.seek(0)
+    charts_data.append(base64.b64encode(img.getvalue()).decode())
 
-        # Third Matplotlib figure - Bar Chart
-        plt.figure(figsize=(5, 5))
-        grouped_data = df.groupby(['year'])['performance'].mean()
-        grouped_data.plot(kind='bar', color='skyblue')
-        plt.title('Performance by Year')
-        plt.xlabel('Year')
-        plt.ylabel('Average Performance')
+    # Bar Chart by Year
+    plt.clf()
+    plt.figure(figsize=(5, 5))
+    yearly_performance = df.groupby(['year'])['performance'].mean()
+    yearly_performance.plot(kind='bar', color='skyblue')
+    plt.title('Average Performance by Year')
+    plt.xlabel('Year')
+    plt.ylabel('Average Performance')
+    img = io.BytesIO()
+    plt.savefig(img, format='png')
+    img.seek(0)
+    charts_data.append(base64.b64encode(img.getvalue()).decode())
 
-        # Embed the third figure in the Tkinter window
-        canvas3 = FigureCanvasTkAgg(plt.gcf(), master=win)
-        canvas3.get_tk_widget().pack(side=LEFT, fill=BOTH, expand=1)
+    return render_template('charts.html', charts_data=charts_data)
 
-# Create the initial Tkinter window
-main_win = create_window()
-
-upload_button = Button(main_win, text="Upload File", command=upload_file)
-upload_button.pack(pady=20)
-
-# Create a frame for the Matplotlib figures
-frame = Frame(main_win)
-frame.pack(side=TOP, fill=BOTH, expand=1)
-
-# Start the Tkinter main loop
-main_win.mainloop()
+if __name__ == '__main__':
+    app.run(debug=True)
